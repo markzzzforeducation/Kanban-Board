@@ -1,82 +1,184 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import draggable from 'vuedraggable'
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import draggable from 'vuedraggable';
+import { useBoardsStore } from '../stores/boards';
+import { useAuthStore } from '../stores/auth';
+import { useNotificationsStore } from '../stores/notifications';
 
-interface Task { id: number; title: string }
-interface Column { id: number; title: string; tasks: Task[]; newTaskTitle: string }
+const route = useRoute();
+const router = useRouter();
+const boards = useBoardsStore();
+const auth = useAuthStore();
+const noti = useNotificationsStore();
 
-// โหลดจาก localStorage
-const saved = localStorage.getItem('kanban-columns')
-const columns = ref<Column[]>(saved ? JSON.parse(saved) : [
-    { id: 1, title: 'To Do', tasks: [{ id: 1, title: 'Task A' }], newTaskTitle: '' },
-    { id: 2, title: 'Doing', tasks: [], newTaskTitle: '' },
-    { id: 3, title: 'Done', tasks: [], newTaskTitle: '' },
-])
+const boardId = computed(() => String(route.params.id));
+const board = computed(() => boards.getBoardById(boardId.value));
 
-const newColumnTitle = ref('')
+const newColumnTitle = ref('');
+const newTaskTitleByColumn = ref<Record<string, string>>({});
+const renamingColumnId = ref<string | null>(null);
+const renamingTaskId = ref<string | null>(null);
+const renameText = ref('');
 
-// บันทึกทุกครั้งที่ columns เปลี่ยน
-watch(columns, (newVal) => {
-    localStorage.setItem('kanban-columns', JSON.stringify(newVal))
-}, { deep: true })
+// helper removed; using inline mapping with non-null assertion instead
 
 function addColumn() {
-    if (!newColumnTitle.value) return
-    columns.value.push({ id: Date.now(), title: newColumnTitle.value, tasks: [], newTaskTitle: '' })
-    newColumnTitle.value = ''
+    if (!board.value || !newColumnTitle.value) return;
+    boards.addColumn(board.value.id, newColumnTitle.value);
+    newColumnTitle.value = '';
 }
 
-function deleteColumn(id: number) {
-    columns.value = columns.value.filter((c: { id: number; }) => c.id !== id)
+function deleteColumn(columnId: string) {
+    if (!board.value) return;
+    boards.deleteColumn(board.value.id, columnId);
 }
 
-function addTask(column: Column) {
-    if (!column.newTaskTitle) return
-    column.tasks.push({ id: Date.now(), title: column.newTaskTitle })
-    column.newTaskTitle = ''
+function addTask(columnId: string) {
+    if (!board.value) return;
+    const text = newTaskTitleByColumn.value[columnId];
+    if (!text) return;
+    boards.createTask(board.value.id, columnId, text);
+    newTaskTitleByColumn.value[columnId] = '';
 }
 
-function deleteTask(columnId: number, taskId: number) {
-    const column = columns.value.find((c: { id: number; }) => c.id === columnId)
-    if (column) column.tasks = column.tasks.filter((t: { id: number; }) => t.id !== taskId)
+function deleteTask(taskId: string) {
+    if (!board.value) return;
+    boards.deleteTask(board.value.id, taskId);
+}
+
+function startRenameColumn(columnId: string, current: string) {
+    renamingTaskId.value = null;
+    renamingColumnId.value = columnId;
+    renameText.value = current;
+}
+function confirmRenameColumn(columnId: string) {
+    if (!board.value) return;
+    boards.renameColumn(board.value.id, columnId, renameText.value);
+    renamingColumnId.value = null;
+}
+function startRenameTask(taskId: string, current: string) {
+    renamingColumnId.value = null;
+    renamingTaskId.value = taskId;
+    renameText.value = current;
+}
+function confirmRenameTask(taskId: string) {
+    if (!board.value) return;
+    boards.renameTask(board.value.id, taskId, renameText.value);
+    renamingTaskId.value = null;
+}
+
+function onTaskDrop(evt: any, toColumnId: string) {
+    if (!board.value) return;
+    const taskId: string = evt.item?.dataset?.id;
+    const fromColumnId: string | undefined = evt.from?.dataset?.columnId;
+    const newOrder: string[] = Array.from(evt.to.querySelectorAll('[data-task-id]')).map((el: any) => el.getAttribute('data-task-id'));
+    if (!taskId || !fromColumnId) return;
+    if (fromColumnId === toColumnId) {
+        boards.reorderTasksWithinColumn(board.value.id, toColumnId, newOrder);
+    } else {
+        const toIndex = evt.newIndex as number | undefined;
+        boards.moveTask(board.value.id, fromColumnId, toColumnId, taskId, toIndex);
+    }
+}
+
+function assignToMe(taskId: string) {
+    if (!board.value || !auth.currentUserId) return;
+    const task = board.value.tasks[taskId];
+    if (!task) return;
+    const ids = new Set(task.assigneeIds);
+    ids.add(auth.currentUserId);
+    boards.setTaskAssignees(board.value.id, taskId, Array.from(ids));
+    // notify assignee (self) as optional feature
+    noti.push(auth.currentUserId, `You were assigned to task "${task.title}" in ${board.value!.name}`);
+}
+
+function updateTags(taskId: string, tagsText: string) {
+    if (!board.value) return;
+    const tags = tagsText.split(',').map(t => t.trim()).filter(Boolean);
+    boards.setTaskTags(board.value.id, taskId, tags);
 }
 </script>
 
 <template>
-    <div class="flex flex-col space-y-4 p-4 bg-gray-50 min-h-screen">
-        <!-- Add Column -->
+    <div class="flex flex-col space-y-4 p-4 bg-gray-50 min-h-screen text-gray-900" v-if="board">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <button class="text-blue-700 underline" @click="router.push('/')">Back</button>
+                <h1 class="text-2xl font-bold">{{ board.name }}</h1>
+            </div>
+            <div class="text-sm" v-if="auth.currentUser">Signed in as {{ auth.currentUser.name }}</div>
+        </div>
+
         <div class="flex space-x-2 mb-4">
-            <input v-model="newColumnTitle" type="text" placeholder="Column title"
-                class="border p-2 rounded flex-1 text-gray-800 bg-white" />
+            <input v-model="newColumnTitle" type="text" placeholder="Add column"
+                class="border p-2 rounded flex-1 bg-white" />
             <button @click="addColumn" class="bg-blue-600 text-white px-4 rounded">Add Column</button>
         </div>
 
-        <!-- Columns -->
         <div class="flex space-x-4 overflow-x-auto">
-            <div v-for="column in columns" :key="column.id"
-                class="bg-gray-200 p-4 rounded min-w-[250px] flex-shrink-0 shadow">
-                <!-- Column Header -->
+            <div v-for="column in board.columns" :key="column.id"
+                class="bg-gray-200 p-4 rounded min-w-[280px] flex-shrink-0 shadow">
                 <div class="flex justify-between items-center mb-2">
-                    <h2 class="font-bold text-lg text-gray-900">{{ column.title }}</h2>
-                    <button @click="deleteColumn(column.id)" class="text-red-600 font-bold">✕</button>
+                    <div>
+                        <template v-if="renamingColumnId === column.id">
+                            <input v-model="renameText" class="border rounded p-1"
+                                @keyup.enter="confirmRenameColumn(column.id)" />
+                            <button class="ml-2 text-blue-700" @click="confirmRenameColumn(column.id)">Save</button>
+                        </template>
+                        <template v-else>
+                            <h2 class="font-bold text-lg">{{ column.title }}</h2>
+                        </template>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="text-sm text-gray-700 underline"
+                            @click="startRenameColumn(column.id, column.title)">Rename</button>
+                        <button @click="deleteColumn(column.id)" class="text-red-600 font-bold">✕</button>
+                    </div>
                 </div>
 
-                <!-- Tasks draggable -->
-                <draggable v-model="column.tasks" group="tasks" item-key="id" class="space-y-2" animation="150">
+                <draggable :list="column.taskIds.map(id => board!.tasks[id]).filter(Boolean)" group="tasks"
+                    item-key="id" class="space-y-2" animation="150" :data-column-id="column.id"
+                    @end="(evt: any) => onTaskDrop(evt, column.id)">
                     <template #item="{ element }">
-                        <div
-                            class="bg-white text-gray-900 p-2 rounded shadow flex justify-between items-center cursor-grab">
-                            <span>{{ element.title }}</span>
-                            <button @click="deleteTask(column.id, element.id)" class="text-red-600 font-bold">✕</button>
+                        <div class="bg-white p-2 rounded shadow cursor-grab" :data-task-id="element.id"
+                            :data-id="element.id">
+                            <div class="flex justify-between items-center">
+                                <div class="font-medium">
+                                    <template v-if="renamingTaskId === element.id">
+                                        <input v-model="renameText" class="border rounded p-1"
+                                            @keyup.enter="confirmRenameTask(element.id)" />
+                                        <button class="ml-2 text-blue-700"
+                                            @click="confirmRenameTask(element.id)">Save</button>
+                                    </template>
+                                    <template v-else>
+                                        {{ element.title }}
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button class="text-xs text-gray-700 underline"
+                                        @click="startRenameTask(element.id, element.title)">Rename</button>
+                                    <button @click="deleteTask(element.id)" class="text-red-600 font-bold">✕</button>
+                                </div>
+                            </div>
+                            <div class="mt-2 flex items-center gap-2">
+                                <input :value="element.tags.join(', ')"
+                                    @change="(e: any) => updateTags(element.id, e.target.value)"
+                                    placeholder="tags (comma)" class="border rounded p-1 w-full" />
+                            </div>
+                            <div class="mt-2 flex items-center gap-2 text-sm">
+                                <div>Assignees: {{ element.assigneeIds.length }}</div>
+                                <button class="text-blue-700 underline" @click="assignToMe(element.id)">Assign to
+                                    me</button>
+                            </div>
                         </div>
                     </template>
                 </draggable>
 
-                <!-- Add Task -->
                 <div class="flex space-x-2 mt-2">
-                    <input v-model="column.newTaskTitle" type="text" placeholder="New Task"
-                        class="border p-1 rounded flex-1 text-gray-800 bg-white" />
-                    <button @click="addTask(column)" class="bg-green-600 text-white px-2 rounded">Add</button>
+                    <input v-model="newTaskTitleByColumn[column.id]" type="text" placeholder="New Task"
+                        class="border p-1 rounded flex-1 bg-white" />
+                    <button @click="addTask(column.id)" class="bg-green-600 text-white px-2 rounded">Add</button>
                 </div>
             </div>
         </div>
