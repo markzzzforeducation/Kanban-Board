@@ -1,3 +1,16 @@
+node_modules/
+dist/
+.DS_Store
+.env
+coverage/
+
+# Backend specific (redundant with backend/.gitignore, safe to keep)
+backend/.env
+backend/prisma/dev.db
+
+# Local files that shouldn't be pushed
+User Password.txt
+
 # Logs
 logs
 *.log
