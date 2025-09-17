@@ -32,15 +32,15 @@ async function submit() {
         error.value = 'Name is required';
         return;
       }
-      const res = auth.register(name.value.trim(), email.value, password.value);
+      const res = await auth.register(name.value.trim(), email.value, password.value);
       if (!res.ok) {
         error.value = res.message || 'Registration failed';
         return;
       }
     } else {
-      const ok = auth.login(email.value, password.value);
-      if (!ok) {
-        error.value = 'Invalid email or password';
+      const res = await auth.login(email.value, password.value);
+      if (!res.ok) {
+        error.value = res.message || 'Invalid email or password';
         return;
       }
     }

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { apiPost, setAuthToken } from '../lib/api';
 
 export interface User {
   id: string;
@@ -43,26 +44,37 @@ export const useAuthStore = defineStore('auth', {
     persistUsers() {
       localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(this.users));
     },
-    login(email: string, password: string): boolean {
-      const user = this.users.find(u => u.email === email && u.password === password);
-      if (!user) return false;
-      this.currentUserId = user.id;
-      localStorage.setItem(STORAGE_KEY_CURRENT, user.id);
-      return true;
+    async login(email: string, password: string): Promise<{ ok: boolean; message?: string }> {
+      try {
+        const res = await apiPost<{ token: string; user: { id: string; name: string; email: string } }>(`/api/auth/login`, { email, password });
+        setAuthToken(res.token);
+        // Sync minimal user list for compatibility
+        const exists = this.users.some(u => u.id === res.user.id);
+        if (!exists) {
+          this.users.push({ id: res.user.id, name: res.user.name, email: res.user.email, password: '' });
+          this.persistUsers();
+        }
+        this.currentUserId = res.user.id;
+        localStorage.setItem(STORAGE_KEY_CURRENT, res.user.id);
+        return { ok: true };
+      } catch (e: any) {
+        return { ok: false, message: e?.message || 'Invalid credentials' };
+      }
     },
-    register(name: string, email: string, password: string): { ok: boolean; message?: string } {
-      const exists = this.users.some(u => u.email === email);
-      if (exists) return { ok: false, message: 'Email already registered' };
-      const id = 'u' + Date.now();
-      this.users.push({ id, name, email, password });
-      this.persistUsers();
-      this.currentUserId = id;
-      localStorage.setItem(STORAGE_KEY_CURRENT, id);
-      return { ok: true };
+    async register(name: string, email: string, password: string): Promise<{ ok: boolean; message?: string }> {
+      try {
+        await apiPost(`/api/auth/register`, { name, email, password });
+        // Auto-login after register
+        const loginRes = await this.login(email, password);
+        return loginRes;
+      } catch (e: any) {
+        return { ok: false, message: e?.message || 'Email already registered' };
+      }
     },
     logout() {
       this.currentUserId = null;
       localStorage.removeItem(STORAGE_KEY_CURRENT);
+      setAuthToken(null);
     },
   },
 });

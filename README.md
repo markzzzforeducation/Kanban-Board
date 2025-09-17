@@ -1,9 +1,9 @@
-# Kanban Board (Vue + Pinia) with Backend (Express + Prisma)
+# Kanban Board (Frontend Only)
 
-Monorepo project containing:
+This repository now contains only the Frontend (Vue 3 + TypeScript + Vite + Pinia).
+The Backend has been moved to a separate repository:
 
-- Frontend: Vue 3 + TypeScript + Vite + Pinia
-- Backend: Node.js + Express + Prisma (SQLite in dev; switchable to Postgres/MySQL)
+- https://github.com/markzzzforeducation/Kanban-Board-Backend
 
 ## Prerequisites
 
@@ -17,19 +17,9 @@ npm install
 npm run dev
 ```
 
-## Backend (`backend/`)
+## Backend API
 
-```bash
-cd backend
-npm install
-# Windows: copy .env.example .env
-# macOS/Linux: cp .env.example .env
-npx prisma generate
-npx prisma migrate dev --name init
-npm run dev
-```
-
-API base: `http://localhost:5174`
+Base URL (default): `http://localhost:5174`
 
 Auth
 
@@ -45,26 +35,11 @@ Boards (requires `Authorization: Bearer <token>`)
 
 ## Run both concurrently (optional)
 
-At the repo root, you can add a script to run both frontend and backend together.
-
-```json
-{
-  "scripts": {
-    "dev:all": "concurrently -n web,api -c green,cyan \"npm:dev\" \"npm --prefix backend run dev\""
-  }
-}
-```
-
-Then:
-
-```bash
-npm install -D concurrently
-npm run dev:all
-```
+You can run the backend separately from the backend repository.
 
 ## Switching DB to Postgres/MySQL
 
-Edit `backend/.env`:
+In the backend repository, edit `.env`:
 
 - Postgres: `DATABASE_PROVIDER=postgresql`, `DATABASE_URL=postgresql://user:pass@host:5432/db?schema=public`
 - MySQL: `DATABASE_PROVIDER=mysql`, `DATABASE_URL=mysql://user:pass@host:3306/db`
