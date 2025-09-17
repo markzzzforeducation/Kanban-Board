@@ -91,6 +91,13 @@ export const useBoardsStore = defineStore('boards', {
       const c = b.columns.find(c => c.id === columnId);
       if (c) { c.title = title; this.persist(); }
     },
+    reorderColumns(boardId: string, newOrder: string[]) {
+      const board = this.boards.find(b => b.id === boardId);
+      if (!board) return;
+      board.columns = newOrder
+        .map(id => board.columns.find(col => col.id === id))
+        .filter(Boolean) as typeof board.columns;
+    },
     deleteColumn(boardId: string, columnId: string) {
       const b = this.getBoardById(boardId);
       if (!b) return;
@@ -154,6 +161,7 @@ export const useBoardsStore = defineStore('boards', {
       if (c) { c.taskIds = newTaskIds; this.persist(); }
     }
   },
+
 });
 
 
