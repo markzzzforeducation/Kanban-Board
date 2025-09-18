@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import { apiPost, setAuthToken } from '../lib/api';
+import { useBoardsStore } from './boards';
+import { useNotificationsStore } from './notifications';
 
 export interface User {
   id: string;
@@ -56,6 +58,17 @@ export const useAuthStore = defineStore('auth', {
         }
         this.currentUserId = res.user.id;
         localStorage.setItem(STORAGE_KEY_CURRENT, res.user.id);
+        // After login, sync boards and notifications from backend
+        try {
+          const boards = useBoardsStore();
+          await boards.fetchBoards();
+          boards.startAutoRefresh(20000);
+        } catch { }
+        try {
+          const noti = useNotificationsStore();
+          await noti.fetch();
+          noti.startAutoRefresh(15000);
+        } catch { }
         return { ok: true };
       } catch (e: any) {
         return { ok: false, message: e?.message || 'Invalid credentials' };
@@ -75,6 +88,14 @@ export const useAuthStore = defineStore('auth', {
       this.currentUserId = null;
       localStorage.removeItem(STORAGE_KEY_CURRENT);
       setAuthToken(null);
+      try {
+        const noti = useNotificationsStore();
+        noti.stopAutoRefresh();
+      } catch { }
+      try {
+        const boards = useBoardsStore();
+        boards.stopAutoRefresh();
+      } catch { }
     },
   },
 });

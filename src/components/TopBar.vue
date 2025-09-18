@@ -23,7 +23,12 @@ function handleDocClick(e: MouseEvent) {
     if (showUserMenu.value && userRef.value && !userRef.value.contains(t)) showUserMenu.value = false;
 }
 
-onMounted(() => document.addEventListener('click', handleDocClick));
+onMounted(() => {
+    document.addEventListener('click', handleDocClick);
+    if (auth.currentUserId) {
+        noti.fetch();
+    }
+});
 onBeforeUnmount(() => document.removeEventListener('click', handleDocClick));
 
 const unread = computed(() => auth.currentUserId ? noti.unreadForUser(auth.currentUserId).length : 0);
@@ -181,6 +186,7 @@ function markNotificationRead(notificationId: string) {
                         <div class="user-avatar">
                             <span class="avatar-text">{{ auth.currentUser?.name?.slice(0, 1) || 'U' }}</span>
                             <div class="avatar-status"></div>
+                            <div v-if="unread > 0" class="avatar-badge">NEW</div>
                         </div>
                         <div class="user-info">
                             <span class="user-name">{{ auth.currentUser?.name || 'User' }}</span>
@@ -513,6 +519,20 @@ function markNotificationRead(notificationId: string) {
     background: #22c55e;
     border-radius: 50%;
     border: 2px solid white;
+}
+
+.avatar-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 2px 6px;
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .user-info {

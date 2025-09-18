@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useBoardsStore } from '../stores/boards';
@@ -15,9 +15,9 @@ const renameText = ref('');
 const inviteEmail = ref('');
 const showInviteModal = ref<string | null>(null);
 
-function createBoard() {
+async function createBoard() {
   if (!auth.currentUserId || !newBoardName.value.trim()) return;
-  const id = boards.createBoard(newBoardName.value.trim(), auth.currentUserId);
+  const id = await boards.createBoard(newBoardName.value.trim(), auth.currentUserId);
   newBoardName.value = '';
   router.push(`/board/${id}`);
 }
@@ -44,9 +44,7 @@ function cancelRename() {
 function doInvite(boardId: string) {
   const email = inviteEmail.value.trim().toLowerCase();
   if (!email) return;
-  // simple lookup from auth store
-  const user = auth.allUsers.find((u: { email: string; }) => u.email.toLowerCase() === email);
-  if (user) boards.inviteMember(boardId, user.id);
+  boards.inviteMemberByEmail(boardId, email);
   inviteEmail.value = '';
   showInviteModal.value = null;
 }
@@ -65,6 +63,10 @@ function logout() {
   auth.logout();
   router.push('/auth');
 }
+
+onMounted(async () => {
+  try { await boards.fetchBoards(); } catch { }
+});
 
 </script>
 
@@ -150,8 +152,9 @@ function logout() {
                   <span class="board-initial">{{ board.name.slice(0, 1).toUpperCase() }}</span>
                 </div>
                 <div class="board-details">
-                  <div v-if="renamingId === board.id" class="rename-section">
-                    <input v-model="renameText" class="rename-input" @keyup.enter="confirmRename(board.id)"
+                  <div v-if="renamingId === board.id" class="rename-section" @click.stop>
+                    <input v-model="renameText" class="rename-input" @click.stop @mousedown.stop
+                      @keydown.enter.stop="confirmRename(board.id)" @keyup.enter="confirmRename(board.id)"
                       @keyup.escape="cancelRename" @blur="confirmRename(board.id)" />
                   </div>
                   <div v-else class="board-name-section">
@@ -180,7 +183,7 @@ function logout() {
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                   </button>
-                  <button class="action-button" @click="startRename(board.id, board.name)" title="Rename board">
+                  <button class="action-button" @click.stop="startRename(board.id, board.name)" title="Rename board">
                     <svg viewBox="0 0 24 24" fill="none">
                       <path
                         d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V18C2 18.5304 2.21071 19.0391 2.58579 19.4142C2.96086 19.7893 3.46957 20 4 20H16C16.5304 20 17.0391 19.7893 17.4142 19.4142C17.7893 19.0391 18 18.5304 18 18V13M18.5 2.5C18.8978 2.10217 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10217 21.5 2.5C21.8978 2.89783 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10217 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z"
@@ -679,8 +682,10 @@ function logout() {
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 400px;
+  max-width: 520px;
   overflow: hidden;
+  /* ensure it fits within viewport width */
+  margin: 0 16px;
 }
 
 .modal-header {
@@ -740,7 +745,8 @@ function logout() {
 }
 
 .invite-input-group {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: stretch;
 }
@@ -752,6 +758,9 @@ function logout() {
   border-radius: 8px;
   font-size: 14px;
   transition: all 0.2s ease;
+  min-width: 0;
+  /* allow to shrink within grid */
+  box-sizing: border-box;
 }
 
 .invite-input:focus {
@@ -771,6 +780,7 @@ function logout() {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .invite-button:hover:not(:disabled) {
@@ -875,6 +885,10 @@ function logout() {
   .modal-content {
     margin: 0 16px;
     max-width: none;
+  }
+
+  .invite-input-group {
+    grid-template-columns: 1fr;
   }
 }
 

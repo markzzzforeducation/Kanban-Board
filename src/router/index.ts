@@ -17,11 +17,16 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
     const auth = useAuthStore();
-    if (to.meta.requiresAuth && !auth.currentUserId) {
+    const hasToken = !!localStorage.getItem('kb-token');
+    if (to.meta.requiresAuth && (!auth.currentUserId || !hasToken)) {
+        // Hard logout if token missing but state says logged in
+        if (!hasToken && auth.currentUserId) {
+            auth.logout();
+        }
         next('/auth');
         return;
     }
-    if (to.path === '/auth' && auth.currentUserId) {
+    if (to.path === '/auth' && auth.currentUserId && hasToken) {
         next('/');
         return;
     }

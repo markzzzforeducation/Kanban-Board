@@ -29,11 +29,7 @@ const isBoardPage = computed(() => route.name === 'board' || String(route.path).
           <span class="footer-separator">•</span>
           <span class="footer-year">&copy; 2025</span>
         </div>
-        <div class="footer-links">
-          <a href="#" class="footer-link">Help</a>
-          <a href="#" class="footer-link">Privacy</a>
-          <a href="#" class="footer-link">Terms</a>
-        </div>
+        <div class="footer-links"></div>
       </div>
     </footer>
   </div>
@@ -111,7 +107,7 @@ const isBoardPage = computed(() => route.name === 'board' || String(route.path).
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;

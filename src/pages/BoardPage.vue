@@ -229,7 +229,7 @@ function logout() {
                 </div>
 
                 <div v-else class="columns-wrapper">
-                    <draggable :list="board.columns" group="columns" item-key="id" class="columns-container"
+                    <draggable :list="(board.columns || [])" group="columns" item-key="id" class="columns-container"
                         animation="200" @end="onColumnDrop" ghost-class="sortable-ghost-column"
                         drag-class="sortable-drag-column" handle=".column-drag-handle">
                         <template #item="{ element: column }">
@@ -268,7 +268,8 @@ function logout() {
                                                                 stroke="currentColor" stroke-width="2"
                                                                 stroke-linecap="round" stroke-linejoin="round" />
                                                         </svg>
-                                                        {{ column.taskIds.length }} {{ column.taskIds.length === 1 ?
+                                                        {{ (column.taskIds || []).length }} {{ (column.taskIds ||
+                                                            []).length === 1 ?
                                                             'task' : 'tasks' }}
                                                     </div>
                                                 </div>
@@ -304,7 +305,7 @@ function logout() {
                                 <!-- Tasks List -->
                                 <div class="tasks-container">
                                     <draggable
-                                        :list="column.taskIds.map((id: string | number) => board!.tasks[id]).filter(Boolean)"
+                                        :list="(column.taskIds || []).map((id: string | number) => board!.tasks[id]).filter(Boolean)"
                                         group="tasks" item-key="id" class="task-list" animation="150"
                                         :data-column-id="column.id" @end="(evt: any) => onTaskDrop(evt, column.id)"
                                         ghost-class="sortable-ghost-task" drag-class="sortable-drag-task"

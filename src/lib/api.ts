@@ -22,22 +22,30 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type': 'application/json', ...authHeaders() } });
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...authHeaders() } });
+  try { console.debug('[API][GET]', url, res.status); } catch { }
   return handle<T>(res);
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body ?? {}) });
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body ?? {}) });
+  try { console.debug('[API][POST]', url, res.status, body); } catch { }
   return handle<T>(res);
 }
 
 export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body ?? {}) });
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body ?? {}) });
+  try { console.debug('[API][PUT]', url, res.status, body); } catch { }
   return handle<T>(res);
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authHeaders() } });
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authHeaders() } });
+  try { console.debug('[API][DELETE]', url, res.status); } catch { }
   return handle<T>(res);
 }
 
